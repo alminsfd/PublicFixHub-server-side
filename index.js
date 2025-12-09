@@ -55,6 +55,28 @@ async function run() {
   try {
     await client.connect();
 
+    //database and collection
+    const db = client.db('publicfixhub')
+    const userCollection = db.collection('users')
+
+    //userapi
+
+    app.post('/users', async (req, res) => {
+
+      const user = req.body
+      user.role = 'citizen';
+      user.isPremium = false;
+      user.isBlocked = false;
+      user.createdAt = new Date();
+      const email = user.email;
+      const userExists = await userCollection.findOne({ email })
+      if (userExists) {
+        return res.send({ message: 'user exists' })
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+
+    })
 
 
     await client.db("admin").command({ ping: 1 });
