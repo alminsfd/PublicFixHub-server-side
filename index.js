@@ -63,7 +63,18 @@ const verifyAdmin = async (req, res, next) => {
   next();
 }
 
-//
+//staff
+const verifystaff = async (req, res, next) => {
+  const email = req.decoded_email;
+  const query = { email };
+  const user = await userCollection.findOne(query);
+
+  if (!user || user.role !== 'staff') {
+    return res.status(403).send({ message: 'forbidden access' });
+  }
+
+  next();
+}
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.eepqhhq.mongodb.net/?appName=Cluster0`;
 
