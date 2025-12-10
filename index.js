@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors');
+const crypto = require("crypto");
 require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000
@@ -80,103 +81,106 @@ const verifystaff = async (req, res, next) => {
 //trakerNumber
 function generateTrackingId() {
   const prefix = "PFHI";
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
-  const random = crypto.randomBytes(3).toString("hex").toUpperCase(); // 6-char random hex
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const random = crypto.randomBytes(3).toString("hex").toUpperCase();
 
   return `${prefix}-${date}-${random}`;
 }
 
-//timelinFuntionality
 
-const logTracking = async (trackingId, status) => {
-  const log = {
-    trackingId,
-    status,
-    details: status.split('_').join(' '),
-    createdAt: new Date()
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.eepqhhq.mongodb.net/?appName=Cluster0`;
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
   }
-  const result = await trackingsCollection.insertOne(log);
-  return result;
+});
+
+async function run() {
+  try {
+    await client.connect();
+
+    //database and collection
+    const db = client.db('publicfixhub')
+    const userCollection = db.collection('users')
+    const IssuesCollection = db.collection('issues')
+    const trackingsCollection = db.collection('tracking')
+
+
+
+    //timelinFuntionality
+
+    const logTracking = async (trackingId, status) => {
+      const log = {
+        trackingId,
+        status,
+        createdAt: new Date()
+      }
+      const result = await trackingsCollection.insertOne(log);
+      return result;
+    }
+
+    //userapi
+
+    app.post('/users', async (req, res) => {
+
+      const user = req.body
+      user.role = 'citizen';
+      user.isPremium = false;
+      user.isBlocked = false;
+      user.createdAt = new Date();
+      const email = user.email;
+      const userExists = await userCollection.findOne({ email })
+      if (userExists) {
+        return res.send({ message: 'user exists' })
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+
+    })
+
+    //Issues api
+    app.post('/issues', async (req, res) => {
+      const Issueinfo = req.body;
+      const trackingId = generateTrackingId();
+      // parcel created time
+      Issueinfo.createdAt = new Date();
+      Issueinfo.trackingId = trackingId;
+      Issueinfo.priority = 'normal'
+      Issueinfo.assignedStaff = 'N/A'
+      Issueinfo.upvotes = []
+      logTracking(trackingId, 'pending');
+
+      const result = await IssuesCollection.insertOne(Issueinfo);
+      res.send(result)
+    })
+
+    //role Api
+    app.get('/users/:email/role', verifyFBToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { email }
+      const user = await userCollection.findOne(query);
+      res.send({ role: user?.role || 'user' })
+    })
+
+
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } finally {
+    //as need your
+  }
 }
-
-  const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.eepqhhq.mongodb.net/?appName=Cluster0`;
-
-  // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-  const client = new MongoClient(uri, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    }
-  });
-
-  async function run() {
-    try {
-      await client.connect();
-
-      //database and collection
-      const db = client.db('publicfixhub')
-      const userCollection = db.collection('users')
-      const IssuesCollection = db.collection('issues')
-
-      //userapi
-
-      app.post('/users', async (req, res) => {
-
-        const user = req.body
-        user.role = 'citizen';
-        user.isPremium = false;
-        user.isBlocked = false;
-        user.createdAt = new Date();
-        const email = user.email;
-        const userExists = await userCollection.findOne({ email })
-        if (userExists) {
-          return res.send({ message: 'user exists' })
-        }
-        const result = await userCollection.insertOne(user);
-        res.send(result);
-
-      })
-
-      //Issues api
-      app.post('/issues', async (req, res) => {
-        const Issueinfo = req.body;
-        const trackingId = generateTrackingId();
-        // parcel created time
-        Issueinfo.createdAt = new Date();
-        Issueinfo.trackingId = trackingId;
-        Issueinfo.status = 'pending'
-        Issueinfo.priority = 'normal'
-        Issueinfo.assignedStaff = 'N/A'
-        Issueinfo.upvotes = []
-        // logTracking(trackingId, 'parcel_created');
-
-        const result = await IssuesCollection.insertOne(Issueinfo);
-        res.send(result)
-      })
-
-      //role Api
-      app.get('/users/:email/role', verifyFBToken, async (req, res) => {
-        const email = req.params.email;
-        const query = { email }
-        const user = await userCollection.findOne(query);
-        res.send({ role: user?.role || 'user' })
-      })
+run().catch(console.dir);
 
 
-      await client.db("admin").command({ ping: 1 });
-      console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-      //as need your
-    }
-  }
-  run().catch(console.dir);
+app.get('/', (req, res) => {
+  res.send('reporting-server-starting')
+})
 
-
-  app.get('/', (req, res) => {
-    res.send('reporting-server-starting')
-  })
-
-  app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-  })
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`)
+})
