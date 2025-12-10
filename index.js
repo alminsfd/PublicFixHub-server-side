@@ -17,7 +17,7 @@ admin.initializeApp({
 });
 
 
-
+//FbToken
 const verifyFBToken = async (req, res, next) => {
   const token = req.headers.authorization;
 
@@ -37,6 +37,18 @@ const verifyFBToken = async (req, res, next) => {
   }
 
 
+}
+//user varify
+const verifyuser = async (req, res, next) => {
+  const email = req.decoded_email;
+  const query = { email };
+  const user = await userCollection.findOne(query);
+
+  if (!user || user.role !== 'citizen') {
+    return res.status(403).send({ message: 'forbidden access' });
+  }
+
+  next();
 }
 
 
