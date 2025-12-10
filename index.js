@@ -114,10 +114,13 @@ async function run() {
 
     //timelinFuntionality
 
-    const logTracking = async (trackingId, status) => {
+    const logTracking = async (trackingId, status, userId, role,message) => {
       const log = {
         trackingId,
         status,
+        updatedBy: userId,
+        role: role,
+        message,
         createdAt: new Date()
       }
       const result = await trackingsCollection.insertOne(log);
@@ -153,8 +156,7 @@ async function run() {
       Issueinfo.priority = 'normal'
       Issueinfo.assignedStaff = 'N/A'
       Issueinfo.upvotes = []
-      logTracking(trackingId, 'pending');
-
+      logTracking(trackingId, 'pending', Issueinfo.createdBy, Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
       const result = await IssuesCollection.insertOne(Issueinfo);
       res.send(result)
     })
@@ -165,6 +167,18 @@ async function run() {
       const query = { email }
       const user = await userCollection.findOne(query);
       res.send({ role: user?.role || 'user' })
+    })
+
+    //userId api
+
+    app.get('/users/:email/id', verifyFBToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { email }
+      const user = await userCollection.findOne(query);
+      res.send({
+        id: user?._id,
+        name: user?.displayName
+      })
     })
 
 
