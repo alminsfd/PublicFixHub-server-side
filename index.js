@@ -4,7 +4,7 @@ const crypto = require("crypto");
 require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 //middaleware
 app.use(express.json());
 app.use(cors());
@@ -12,6 +12,8 @@ app.use(cors());
 const admin = require("firebase-admin");
 
 const serviceAccount = require("./reporting-system-69-firebase-adminsdk.json");
+const e = require('express');
+const { log } = require('console');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -25,11 +27,9 @@ const verifyFBToken = async (req, res, next) => {
   if (!token) {
     return res.status(401).send({ message: 'unauthorized access' })
   }
-
   try {
     const idToken = token.split(' ')[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
-    // console.log('decoded in the token', decoded);
     req.decoded_email = decoded.email;
     next();
   }
@@ -39,18 +39,7 @@ const verifyFBToken = async (req, res, next) => {
 
 
 }
-//user varify
-const verifyuser = async (req, res, next) => {
-  const email = req.decoded_email;
-  const query = { email };
-  const user = await userCollection.findOne(query);
 
-  if (!user || user.role !== 'citizen') {
-    return res.status(403).send({ message: 'forbidden access' });
-  }
-
-  next();
-}
 //admin vafify token 
 const verifyAdmin = async (req, res, next) => {
   const email = req.decoded_email;
@@ -154,20 +143,46 @@ async function run() {
     app.post('/issues', async (req, res) => {
       const Issueinfo = req.body;
       const trackingId = generateTrackingId();
-
-
-
       // parcel created time
       Issueinfo.createdAt = new Date();
       Issueinfo.trackingId = trackingId;
       Issueinfo.priority = 'normal'
-      Issueinfo.assignedStaff = 'N/A'
-      Issueinfo.upvotes = []
+      Issueinfo.assignedStaff = 'N/A',
+      Issueinfo.status= 'pending',
+      Issueinfo.upvotes = 0
       logTracking(trackingId, 'pending', Issueinfo.createdBy, Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
       const result = await IssuesCollection.insertOne(Issueinfo);
       res.send(result)
     })
 
+    //get all issue api
+
+    app.get("/issues", verifyFBToken, async (req, res) => {
+      const email = req.query.email;
+      const query = {}
+      if (email) {
+        query.createrEmail = email
+        if (req.decoded_email !== email) {
+          return res.status(403).send({ message: 'forbidden access' })
+        }
+      }
+      const cursor = await IssuesCollection.find(query).toArray();
+      res.send(cursor);
+    });
+    //issue details API
+    app.get("/issues/:id",  async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const cursor = await IssuesCollection.find(query).toArray();
+      res.send(cursor);
+    });
+    //issue delete
+        app.get("/issues/:id",  async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const cursor = await IssuesCollection.find(query).toArray();
+      res.send(cursor);
+    });
     //role Api
     app.get('/users/:email/role', verifyFBToken, async (req, res) => {
       const email = req.params.email;
@@ -185,7 +200,8 @@ async function run() {
       res.send({
         id: user?._id,
         name: user?.displayName,
-        isPremium:user?.isPremium
+        isPremium: user?.isPremium,
+        email: user?.email
       })
     })
 
