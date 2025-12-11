@@ -148,8 +148,8 @@ async function run() {
       Issueinfo.trackingId = trackingId;
       Issueinfo.priority = 'normal'
       Issueinfo.assignedStaff = 'N/A',
-      Issueinfo.status= 'pending',
-      Issueinfo.upvotes = 0
+        Issueinfo.status = 'pending',
+        Issueinfo.upvotes = 0
       logTracking(trackingId, 'pending', Issueinfo.createdBy, Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
       const result = await IssuesCollection.insertOne(Issueinfo);
       res.send(result)
@@ -170,17 +170,17 @@ async function run() {
       res.send(cursor);
     });
     //issue details API
-    app.get("/issues/:id",  async (req, res) => {
+    app.get("/issues/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) }
       const cursor = await IssuesCollection.find(query).toArray();
       res.send(cursor);
     });
     //issue delete
-        app.get("/issues/:id",  async (req, res) => {
+    app.delete("/issues/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
-      const cursor = await IssuesCollection.find(query).toArray();
+      const query = { _id: new ObjectId(id) }
+      const cursor = await IssuesCollection.deleteOne(query)
       res.send(cursor);
     });
     //role Api
