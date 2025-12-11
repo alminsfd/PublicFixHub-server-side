@@ -183,6 +183,36 @@ async function run() {
       const cursor = await IssuesCollection.deleteOne(query)
       res.send(cursor);
     });
+    //issue update api
+
+    app.patch('/issues/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updateData = req.body;
+
+        const filter = { _id: new ObjectId(id) };
+
+        const updateDoc = {
+          $set: {
+            title: updateData.title,
+            catagory: updateData.catagory,
+            description: updateData.description,
+            photoURL: updateData.photoURL,
+            location: updateData.location,
+            updatedAt: new Date()
+          }
+        };
+
+        const result = await IssuesCollection.updateOne(filter, updateDoc);
+
+        res.send(result);
+
+      } catch (error) {
+        console.log("Update Issue Error:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
     //role Api
     app.get('/users/:email/role', verifyFBToken, async (req, res) => {
       const email = req.params.email;
