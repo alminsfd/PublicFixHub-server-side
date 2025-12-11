@@ -184,7 +184,8 @@ async function run() {
       const user = await userCollection.findOne(query);
       res.send({
         id: user?._id,
-        name: user?.displayName
+        name: user?.displayName,
+        isPremium:user?.isPremium
       })
     })
 
