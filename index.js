@@ -29,7 +29,7 @@ const verifyFBToken = async (req, res, next) => {
   try {
     const idToken = token.split(' ')[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
-    console.log('decoded in the token', decoded);
+    // console.log('decoded in the token', decoded);
     req.decoded_email = decoded.email;
     next();
   }
@@ -110,11 +110,15 @@ async function run() {
     const IssuesCollection = db.collection('issues')
     const trackingsCollection = db.collection('tracking')
 
-
-
+    //issueConunt api
+    app.get("/issues/count/:userId", async (req, res) => {
+      const userId = req.params.userId;
+      const count = await IssuesCollection.countDocuments({ createdBy: userId });
+      res.send({ count });
+    });
     //timelinFuntionality
 
-    const logTracking = async (trackingId, status, userId, role,message) => {
+    const logTracking = async (trackingId, status, userId, role, message) => {
       const log = {
         trackingId,
         status,
@@ -150,6 +154,9 @@ async function run() {
     app.post('/issues', async (req, res) => {
       const Issueinfo = req.body;
       const trackingId = generateTrackingId();
+
+
+
       // parcel created time
       Issueinfo.createdAt = new Date();
       Issueinfo.trackingId = trackingId;
