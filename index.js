@@ -106,7 +106,6 @@ async function run() {
       res.send({ count });
     });
     //timelinFuntionality
-
     const logTracking = async (trackingId, status, userId, role, message) => {
       const log = {
         trackingId,
@@ -123,7 +122,6 @@ async function run() {
     //userapi
 
     app.post('/users', async (req, res) => {
-
       const user = req.body
       user.role = 'citizen';
       user.isPremium = false;
@@ -138,6 +136,48 @@ async function run() {
       res.send(result);
 
     })
+
+    // get user api
+
+    app.get('/users', verifyFBToken, async (req, res) => {
+      const email = req.query.email;
+      const query = {}
+      if (email) {
+        query.email = email
+        if (req.decoded_email !== email) {
+          return res.status(403).send({ message: 'forbidden access' })
+        }
+      }
+      const cursor = await userCollection.find(query).toArray();
+      res.send(cursor);
+    })
+
+    //update user info
+
+    app.patch('/users/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updateData = req.body;
+        console.log(id, updateData)
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            displayName:updateData.displayName,
+            email: updateData.email,
+            photoURL: updateData.photoURL,
+            updatedAt: new Date()
+          }
+        };
+
+        const result = await userCollection.updateOne(filter, updateDoc);
+
+        res.send(result);
+
+      } catch (error) {
+        console.log("Update Issue Error:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
 
     //Issues api
     app.post('/issues', async (req, res) => {
@@ -156,7 +196,6 @@ async function run() {
     })
 
     //get all issue api
-
     app.get("/issues", verifyFBToken, async (req, res) => {
       const email = req.query.email;
       const query = {}
@@ -170,7 +209,7 @@ async function run() {
       res.send(cursor);
     });
     //issue details API
-    app.get("/issues/:id", async (req, res) => {
+    app.get("/issues/:id", verifyFBToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const cursor = await IssuesCollection.find(query).toArray();
@@ -189,9 +228,7 @@ async function run() {
       try {
         const id = req.params.id;
         const updateData = req.body;
-
         const filter = { _id: new ObjectId(id) };
-
         const updateDoc = {
           $set: {
             title: updateData.title,
