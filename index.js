@@ -5,6 +5,7 @@ require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require('stripe')(process.env.STRIPE_SECRET);
 //middaleware
 app.use(express.json());
 app.use(cors());
@@ -14,6 +15,7 @@ const admin = require("firebase-admin");
 const serviceAccount = require("./reporting-system-69-firebase-adminsdk.json");
 const e = require('express');
 const { log } = require('console');
+const { console } = require('inspector');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -106,6 +108,42 @@ async function run() {
       const count = await IssuesCollection.countDocuments({ createdBy: userId });
       res.send({ count });
     });
+    //issuehomeDashboardcount
+    app.get("/issues/user/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        if (!email) {
+          return res.status(400).send({ message: "Email is required" });
+        }
+
+        const query = { createrEmail: email };
+
+        const issues = await IssuesCollection.find(query).sort({ createdAt: -1 }).toArray();
+
+        res.send(issues);
+      } catch (error) {
+        console.error("Error fetching user issues:", error);
+        res.status(500).send({ message: "Internal server error" });
+      }
+    });
+
+    //userPaymentcount
+    app.get("/userpayment/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        if (!email) {
+          return res.status(400).send({ message: "Email is required" });
+        }
+        const query = { userEmail: email };
+        const issuespay = await paymentCollection.find(query).sort({paidAt: -1 }).toArray();
+        res.send(issuespay);
+      } catch (error) {
+        console.error("Error fetching user issues:", error);
+        res.status(500).send({ message: "Internal server error" });
+      }
+    });
+
     //timelinFuntionality
     const logTracking = async (trackingId, status, userId, role, message) => {
       const log = {
@@ -260,10 +298,10 @@ async function run() {
         line_items: [
           {
             price_data: {
-              currency: 'usd',
+              currency: 'bdt',
               unit_amount: amount,
               product_data: {
-                name: `Please pay for: ${parcelInfo.Name}`
+                name: `Please pay : ${parcelInfo.Name}`
               }
             },
             quantity: 1,
@@ -304,19 +342,22 @@ async function run() {
         const query = { _id: new ObjectId(id) }
         const update = {
           $set: {
-            isPremium:true
+            isPremium: true
           }
         }
 
         const result = await userCollection.updateOne(query, update);
 
+        console.log(session)
+
         const payment = {
           amount: session.amount_total / 100,
           currency: session.currency,
-          userEmail: session.email,
+          userEmail: session.metadata.email,
           userId: session.metadata.userId,
           transactionId: session.payment_intent,
           paymentStatus: session.payment_status,
+          paymentType:'premium',
           paidAt: new Date(),
           trackingId: trackingId
         }
