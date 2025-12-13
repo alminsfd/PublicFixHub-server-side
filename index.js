@@ -98,6 +98,7 @@ async function run() {
     const userCollection = db.collection('users')
     const IssuesCollection = db.collection('issues')
     const trackingsCollection = db.collection('tracking')
+    const paymentCollection = db.collection('payments')
 
     //issueConunt api
     app.get("/issues/count/:userId", async (req, res) => {
@@ -162,7 +163,7 @@ async function run() {
         const filter = { _id: new ObjectId(id) };
         const updateDoc = {
           $set: {
-            displayName:updateData.displayName,
+            displayName: updateData.displayName,
             email: updateData.email,
             photoURL: updateData.photoURL,
             updatedAt: new Date()
@@ -249,6 +250,87 @@ async function run() {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
+    //payment api
+
+    app.post('/payment-checkout-session', async (req, res) => {
+      const parcelInfo = req.body;
+      const amount = parseInt(parcelInfo.price) * 100;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              unit_amount: amount,
+              product_data: {
+                name: `Please pay for: ${parcelInfo.Name}`
+              }
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        metadata: {
+          userId: parcelInfo.userId,
+          email: parcelInfo.email
+        },
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled`,
+      })
+
+      res.send({ url: session.url })
+    })
+
+    //payment successful api
+
+    app.patch('/payment-success', async (req, res) => {
+      const sessionId = req.query.session_id;
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const transactionId = session.payment_intent;
+      const query = { transactionId: transactionId }
+
+      const paymentExist = await paymentCollection.findOne(query);
+      if (paymentExist) {
+        return res.send({
+          message: 'already exists',
+          transactionId,
+          trackingId: paymentExist.userId
+        })
+      }
+      const trackingId = session.metadata.userId;
+
+      if (session.payment_status === 'paid') {
+        const id = session.metadata.userId;
+        const query = { _id: new ObjectId(id) }
+        const update = {
+          $set: {
+            isPremium:true
+          }
+        }
+
+        const result = await userCollection.updateOne(query, update);
+
+        const payment = {
+          amount: session.amount_total / 100,
+          currency: session.currency,
+          userEmail: session.email,
+          userId: session.metadata.userId,
+          transactionId: session.payment_intent,
+          paymentStatus: session.payment_status,
+          paidAt: new Date(),
+          trackingId: trackingId
+        }
+        const resultPayment = await paymentCollection.insertOne(payment);
+        return res.send({
+          success: true,
+          modifyParcel: result,
+          trackingId: trackingId,
+          transactionId: session.payment_intent,
+          paymentInfo: resultPayment
+        })
+      }
+      return res.send({ success: false })
+    })
 
     //role Api
     app.get('/users/:email/role', verifyFBToken, async (req, res) => {
