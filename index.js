@@ -21,13 +21,41 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
+//blocken
+const checkBlockedUser = async (req, res, next) => {
+  const email = req.user.email; const checkBlockedUser = async (req, res, next) => {
+    const email = req.user.email;
+
+    const user = await usersCollection.findOne({ email });
+
+    if (user?.isBlocked) {
+      return res.status(403).json({
+        message: "You are blocked. Action not allowed."
+      });
+    }
+
+    next();
+  };
+
+
+  const user = await usersCollection.findOne({ email });
+
+  if (user?.isBlocked) {
+    return res.status(403).json({
+      message: "You are blocked. Action not allowed."
+    });
+  }
+
+  next();
+};
+
 
 //FbToken
 const verifyFBToken = async (req, res, next) => {
   const token = req.headers.authorization;
 
   if (!token) {
-    return res.status(401).send({ message: 'unauthorized access' })
+    return res.status(401).send({ message: 'unauthorized access 1' })
   }
   try {
     const idToken = token.split(' ')[1];
@@ -36,7 +64,7 @@ const verifyFBToken = async (req, res, next) => {
     next();
   }
   catch (err) {
-    return res.status(401).send({ message: 'unauthorized access' })
+    return res.status(401).send({ message: 'unauthorized access 2' })
   }
 
 
@@ -93,7 +121,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     //database and collection
     const db = client.db('publicfixhub')
@@ -109,7 +137,7 @@ async function run() {
       res.send({ count });
     });
     //issuehomeDashboardcount
-    app.get("/issues/user/:email", async (req, res) => {
+    app.get("/issues/user/:email", verifyFBToken, async (req, res) => {
       try {
         const email = req.params.email;
 
@@ -129,14 +157,14 @@ async function run() {
     });
 
     //userPaymentcount
-    app.get("/userpayment/:email", async (req, res) => {
+    app.get("/userpayment/:email", verifyFBToken, async (req, res) => {
       try {
         const email = req.params.email;
         if (!email) {
           return res.status(400).send({ message: "Email is required" });
         }
-        const query = { userEmail: email };
-        const issuespay = await paymentCollection.find(query).sort({paidAt: -1 }).toArray();
+        const query = {customerEmail: email };
+        const issuespay = await paymentCollection.find(query).sort({ paidAt: -1 }).toArray();
         res.send(issuespay);
       } catch (error) {
         console.error("Error fetching user issues:", error);
@@ -230,6 +258,7 @@ async function run() {
         Issueinfo.status = 'pending',
         Issueinfo.upvotes = 0
       logTracking(trackingId, 'pending', Issueinfo.createdBy, Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
+      console.log(Issueinfo)
       const result = await IssuesCollection.insertOne(Issueinfo);
       res.send(result)
     })
@@ -251,7 +280,7 @@ async function run() {
     app.get("/issues/:id", verifyFBToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
-      const cursor = await IssuesCollection.find(query).toArray();
+      const cursor = await IssuesCollection.findOne(query)
       res.send(cursor);
     });
     //issue delete
@@ -289,7 +318,44 @@ async function run() {
       }
     });
 
-    //payment api
+
+
+    //bosting payment api
+
+    app.post("/payment-checkout-session/boosting", async (req, res) => {
+      const IssueInfo = req.body
+      const amount = parseInt(IssueInfo.price) * 100;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: 'bdt',
+              unit_amount: amount,
+              product_data: {
+                name: `Please Boost for : ${IssueInfo.Issuetitle}`
+              }
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        metadata: {
+          Issueid: IssueInfo.Issueid,
+          trackingId: IssueInfo.trackingId,
+          Issuetitle: IssueInfo.Issuetitle
+          
+        },
+        customer_email: IssueInfo.createrEmail,
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success-boosting?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled-boosting`,
+      })
+      res.send({ url: session.url })
+    })
+
+
+
+
+    //  suscribtion payment api payment api
 
     app.post('/payment-checkout-session', async (req, res) => {
       const parcelInfo = req.body;
@@ -316,10 +382,76 @@ async function run() {
         cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled`,
       })
 
+
       res.send({ url: session.url })
+
     })
 
-    //payment successful api
+    //boosting successful api
+    app.patch('/payment-success/boosting', async (req, res) => {
+
+      const sessionId = req.query.session_id;
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      console.log(session)
+      const transactionId = session.payment_intent;
+      const query = { transactionId: transactionId }
+      const paymentExist = await paymentCollection.findOne(query);
+      if (paymentExist) {
+        return res.send({
+          message: 'already exists',
+          transactionId,
+          trackingId: paymentExist.userId
+        })
+      }
+      const trackingId = session.metadata.trackingId;
+      if (session.payment_status === 'paid') {
+        const id = session.metadata.Issueid;
+        const query = { _id: new ObjectId(id) }
+        const update = {
+          $set: {
+            priority: 'high',
+          }
+        }
+        const result = await IssuesCollection.updateOne(query, update);
+        const payment = {
+          amount: session.amount_total / 100,
+          currency: session.currency,
+          customerEmail: session.customer_email,
+          IssueId: session.metadata.Issueid,
+          IssueName: session.metadata.Issuetitle,
+          transactionId: session.payment_intent,
+          paymentStatus: session.payment_status,
+          paidAt: new Date(),
+          trackingId: trackingId
+        }
+        const resultPayment = await paymentCollection.insertOne(payment);
+        const log = {
+          trackingId,
+          status: 'pending',
+          Boosting:'Boost the issue',
+          updatedBy: session.metadata.Issueid,
+          role: 'citizen',
+          message: `Boosting for ${session.metadata.Issuetitle}`,
+          createdAt: new Date()
+        }
+        const trackingresult = await trackingsCollection.insertOne(log);
+        console.log({resultPayment,trackingresult})
+        return res.send({
+          success: true,
+          modifyParcel: result,
+          trackingId: trackingId,
+          transactionId: session.payment_intent,
+          paymentInfo: resultPayment,
+          trackingInfo: trackingresult,
+        })
+
+
+      }
+
+    })
+
+    // suscribtion  payment successful api
+
 
     app.patch('/payment-success', async (req, res) => {
       const sessionId = req.query.session_id;
@@ -357,7 +489,7 @@ async function run() {
           userId: session.metadata.userId,
           transactionId: session.payment_intent,
           paymentStatus: session.payment_status,
-          paymentType:'premium',
+          paymentType: 'premium',
           paidAt: new Date(),
           trackingId: trackingId
         }
