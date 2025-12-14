@@ -163,7 +163,7 @@ async function run() {
         if (!email) {
           return res.status(400).send({ message: "Email is required" });
         }
-        const query = {customerEmail: email };
+        const query = { customerEmail: email };
         const issuespay = await paymentCollection.find(query).sort({ paidAt: -1 }).toArray();
         res.send(issuespay);
       } catch (error) {
@@ -256,12 +256,44 @@ async function run() {
       Issueinfo.priority = 'normal'
       Issueinfo.assignedStaff = 'N/A',
         Issueinfo.status = 'pending',
-        Issueinfo.upvotes = 0
+        Issueinfo.upvotes = 0,
+        Issueinfo.upvotedBy = []
       logTracking(trackingId, 'pending', Issueinfo.createdBy, Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
       console.log(Issueinfo)
       const result = await IssuesCollection.insertOne(Issueinfo);
       res.send(result)
     })
+
+    // Issue upovetes increate
+    app.patch("/issues/upvote/:id", async (req, res) => {
+      const id = req.params.id;
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).send({ message: "User email required" });
+      }
+
+      const result = await IssuesCollection.updateOne(
+        {
+          _id: new ObjectId(id),
+          upvotedBy: { $ne: email }
+        },
+        {
+          $inc: { upvotes: 1 },
+          $addToSet: { upvotedBy: email }
+        }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(400).send({ message: "Already upvoted" });
+      }
+
+      res.send({
+        success: true,
+        message: "Upvoted successfully"
+      });
+    });
+
+
 
     //get all issue api
     app.get("/issues", verifyFBToken, async (req, res) => {
@@ -343,7 +375,7 @@ async function run() {
           Issueid: IssueInfo.Issueid,
           trackingId: IssueInfo.trackingId,
           Issuetitle: IssueInfo.Issuetitle
-          
+
         },
         customer_email: IssueInfo.createrEmail,
         success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success-boosting?session_id={CHECKOUT_SESSION_ID}`,
@@ -428,14 +460,14 @@ async function run() {
         const log = {
           trackingId,
           status: 'pending',
-          Boosting:'Boost the issue',
+          Boosting: 'Boost the issue',
           updatedBy: session.metadata.Issueid,
           role: 'citizen',
           message: `Boosting for ${session.metadata.Issuetitle}`,
           createdAt: new Date()
         }
         const trackingresult = await trackingsCollection.insertOne(log);
-        console.log({resultPayment,trackingresult})
+        console.log({ resultPayment, trackingresult })
         return res.send({
           success: true,
           modifyParcel: result,
@@ -485,7 +517,7 @@ async function run() {
         const payment = {
           amount: session.amount_total / 100,
           currency: session.currency,
-          userEmail: session.metadata.email,
+          customerEmail: session.metadata.email,
           userId: session.metadata.userId,
           transactionId: session.payment_intent,
           paymentStatus: session.payment_status,
