@@ -267,9 +267,12 @@ async function run() {
     // Issue upovetes increate
     app.patch("/issues/upvote/:id", async (req, res) => {
       const id = req.params.id;
-      const { email } = req.body;
+      const { email, createrEmail } = req.body;
       if (!email) {
-        return res.status(400).send({ message: "User email required" });
+        return res.status(400).send({ message: "Log in first" });
+      }
+      if (createrEmail === email) {
+        return res.status(400).send({ message: "You can't upvote your own issue" });
       }
 
       const result = await IssuesCollection.updateOne(
@@ -294,9 +297,34 @@ async function run() {
     });
 
 
+    //get all issue
+    app.get('/issues',async(req,res)=>{
+      const query={}
+      const { status, priority, category, searchText } = req.query;
+      if(searchText){
+        query.$or=[
+          { title: { $regex: searchText, $options: 'i' }},
+          {catagory: { $regex: searchText, $options: 'i' }},
+          {location: { $regex: searchText, $options: 'i' }}
+        ]
 
-    //get all issue api
-    app.get("/issues", verifyFBToken, async (req, res) => {
+      }
+
+      if (status) {
+        query.status = status;
+      }
+      if (priority) {
+        query.priority = priority;
+      }
+      if (category) {
+        query.catagory = category;
+      }
+      const cursor =  await IssuesCollection.find(query).toArray();
+      res.send(cursor)
+    })
+
+    //get all issue api based on email
+    app.get("/myissues", verifyFBToken, async (req, res) => {
       const email = req.query.email;
       const query = {}
       if (email) {
