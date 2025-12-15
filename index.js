@@ -22,33 +22,8 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
-//blocken
-const checkBlockedUser = async (req, res, next) => {
-  const email = req.user.email; const checkBlockedUser = async (req, res, next) => {
-    const email = req.user.email;
-
-    const user = await usersCollection.findOne({ email });
-
-    if (user?.isBlocked) {
-      return res.status(403).json({
-        message: "You are blocked. Action not allowed."
-      });
-    }
-
-    next();
-  };
 
 
-  const user = await usersCollection.findOne({ email });
-
-  if (user?.isBlocked) {
-    return res.status(403).json({
-      message: "You are blocked. Action not allowed."
-    });
-  }
-
-  next();
-};
 
 
 //FbToken
@@ -62,6 +37,9 @@ const verifyFBToken = async (req, res, next) => {
     const idToken = token.split(' ')[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
     req.decoded_email = decoded.email;
+    req.user = {
+      email: decoded.email
+    };
     next();
   }
   catch (err) {
@@ -130,6 +108,22 @@ async function run() {
     const IssuesCollection = db.collection('issues')
     const trackingsCollection = db.collection('tracking')
     const paymentCollection = db.collection('payments')
+
+
+    //blocken
+    const checkBlockedUser = async (req, res, next) => {
+      const email = req.user.email;
+
+      const user = await userCollection.findOne({ email });
+
+      if (user?.isBlocked) {
+        return res.status(403).json({
+          message: "You are blocked. Action not allowed."
+        });
+      }
+
+      next();
+    };
 
     //issueConunt api
     app.get("/issues/count/:userId", async (req, res) => {
@@ -261,7 +255,7 @@ async function run() {
 
 
     //Issues api
-    app.post('/issues', async (req, res) => {
+    app.post('/issues', verifyFBToken, checkBlockedUser, async (req, res) => {
       const Issueinfo = req.body;
       const trackingId = generateTrackingId();
       // parcel created time
@@ -279,7 +273,7 @@ async function run() {
     })
 
     // Issue upovetes increate
-    app.patch("/issues/upvote/:id", async (req, res) => {
+    app.patch("/issues/upvote/:id", verifyFBToken, checkBlockedUser, async (req, res) => {
       const id = req.params.id;
       const { email, createrEmail } = req.body;
       if (!email) {
@@ -377,7 +371,7 @@ async function run() {
     });
     //issue update api
 
-    app.patch('/issues/:id', async (req, res) => {
+    app.patch('/issues/:id', verifyFBToken, checkBlockedUser, async (req, res) => {
       try {
         const id = req.params.id;
         const updateData = req.body;
@@ -407,7 +401,7 @@ async function run() {
 
     //bosting payment api
 
-    app.post("/payment-checkout-session/boosting", async (req, res) => {
+    app.post("/payment-checkout-session/boosting", verifyFBToken, checkBlockedUser, async (req, res) => {
       const IssueInfo = req.body
       const amount = parseInt(IssueInfo.price) * 100;
       const session = await stripe.checkout.sessions.create({
