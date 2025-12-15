@@ -16,6 +16,7 @@ const serviceAccount = require("./reporting-system-69-firebase-adminsdk.json");
 const e = require('express');
 const { log } = require('console');
 const { console } = require('inspector');
+const { link } = require('fs');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -298,14 +299,17 @@ async function run() {
 
 
     //get all issue
-    app.get('/issues',async(req,res)=>{
-      const query={}
+    app.get('/issues', async (req, res) => {
+      let query = {}
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 6;
+      const skip = (page - 1) * limit;
       const { status, priority, category, searchText } = req.query;
-      if(searchText){
-        query.$or=[
-          { title: { $regex: searchText, $options: 'i' }},
-          {catagory: { $regex: searchText, $options: 'i' }},
-          {location: { $regex: searchText, $options: 'i' }}
+      if (searchText) {
+        query.$or = [
+          { title: { $regex: searchText, $options: 'i' } },
+          { catagory: { $regex: searchText, $options: 'i' } },
+          { location: { $regex: searchText, $options: 'i' } }
         ]
 
       }
@@ -318,9 +322,17 @@ async function run() {
       }
       if (category) {
         query.catagory = category;
+
       }
-      const cursor =  await IssuesCollection.find(query).toArray();
-      res.send(cursor)
+      const total = await IssuesCollection.countDocuments(query);
+      const cursor = await IssuesCollection.find(query).skip(skip).limit(limit).toArray();
+      res.send({
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        issues: cursor
+      });
     })
 
     //get all issue api based on email
