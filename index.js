@@ -247,6 +247,19 @@ async function run() {
       }
     });
 
+    //Lates Issue api
+
+    app.get('/issues/resolved/latest', async (req, res) => {
+      const result = await IssuesCollection
+        .find({ status: "resolved" })
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .toArray();
+
+      res.send(result);
+    });
+
+
     //Issues api
     app.post('/issues', async (req, res) => {
       const Issueinfo = req.body;
