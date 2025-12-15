@@ -49,31 +49,9 @@ const verifyFBToken = async (req, res, next) => {
 
 }
 
-//admin vafify token 
-const verifyAdmin = async (req, res, next) => {
-  const email = req.decoded_email;
-  const query = { email };
-  const user = await userCollection.findOne(query);
 
-  if (!user || user.role !== 'admin') {
-    return res.status(403).send({ message: 'forbidden access' });
-  }
 
-  next();
-}
 
-//staff
-const verifystaff = async (req, res, next) => {
-  const email = req.decoded_email;
-  const query = { email };
-  const user = await userCollection.findOne(query);
-
-  if (!user || user.role !== 'staff') {
-    return res.status(403).send({ message: 'forbidden access' });
-  }
-
-  next();
-}
 
 
 //trakerNumber
@@ -108,6 +86,34 @@ async function run() {
     const IssuesCollection = db.collection('issues')
     const trackingsCollection = db.collection('tracking')
     const paymentCollection = db.collection('payments')
+
+
+    //admin vafify token 
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded_email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+
+      if (!user || user.role !== 'admin') {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+
+      next();
+    }
+
+
+    //staff
+    const verifystaff = async (req, res, next) => {
+      const email = req.decoded_email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+
+      if (!user || user.role !== 'staff') {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+
+      next();
+    }
 
 
     //blocken
@@ -304,6 +310,49 @@ async function run() {
       });
     });
 
+    /*** -----------------------------------  Admin--------------------     */
+    //get all issue by  status
+
+    app.get('/issues/status', verifyFBToken, verifyAdmin, async (req, res) => {
+
+      const cursor = await IssuesCollection.find({ status: "pending" }).toArray()
+      res.send(cursor)
+
+    })
+
+    app.get('/staff', async (req, res) => {
+      const cursor = await userCollection.find({ status: 'available' }).toArray()
+      res.send(cursor)
+    })
+
+
+    app.patch("/issues/assign/:id", async (req, res) => {
+      const id = req.params.id;
+      const { staff } = req.body;
+
+      const issue = await issuesCollection.findOne({ _id: new ObjectId(id) });
+
+      // ❌ Re-assign block
+      if (issue.assignedStaff && issue.assignedStaff !== "N/A") {
+        return res.send({ message: "Already assigned" });
+      }
+
+      const result = await issuesCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            assignedStaff: staff,
+            status: "in-progress"
+          }
+        }
+      );
+
+      res.send(result);
+    });
+
+
+
+    /** -------------------------------------------------------------------------- */
 
     //get all issue
     app.get('/issues', async (req, res) => {
