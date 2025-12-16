@@ -321,13 +321,13 @@ async function run() {
 
     })
 
-    app.get('/staff', async (req, res) => {
+    app.get('/staff', verifyFBToken, verifyAdmin, async (req, res) => {
       const cursor = await userCollection.find({ role: 'staff' }).toArray()
       res.send(cursor)
     })
 
 
-    app.patch("/issues/assign/:id", async (req, res) => {
+    app.patch("/issues/assign/:id", verifyFBToken, verifyAdmin, async (req, res) => {
 
       const id = req.params.id;
       const { staff } = req.body;
@@ -367,7 +367,7 @@ async function run() {
     });
 
 
-    app.patch("/issues/reject/:id", async (req, res) => {
+    app.patch("/issues/reject/:id", verifyFBToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
 
       const result = await IssuesCollection.updateOne(
@@ -380,10 +380,63 @@ async function run() {
       res.send(result);
     });
 
+    // GET /users/citizens
+    app.get('/users/citizens', verifyFBToken, verifyAdmin, async (req, res) => {
+      const result = await userCollection.find({ role: 'citizen' }).toArray();
+      res.send(result);
+    });
+
+    // GET /payments/user/:email
+    app.get('/payments/user/:email', verifyFBToken, verifyAdmin, async (req, res) => {
+      const email = req.params.email;
+      const payment = await paymentCollection.findOne({
+        customerEmail: email,
+        paymentStatus: 'paid',
+        paymentType: 'premium'
+      });
+      res.send(payment);
+    });
+
+    // PATCH /users/block/:id
+    app.patch('/users/block/:id', verifyFBToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const { isBlocked } = req.body;
+
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { isBlocked } }
+      );
+
+      res.send(result);
+    });
+
 
 
 
     /** -------------------------------------------------------------------------- */
+
+    /**  --------------- Staff -------------------------------------------------- */
+
+
+    app.get("/issues/staff/:email", verifyFBToken, async (req, res) => {
+      const email = req.params.email;
+
+      const issues = await IssuesCollection.find({
+        "assignedStaff.email": email,
+        status: { $ne: "rejected" }
+      }).toArray();
+
+      res.send(issues);
+    });
+
+
+
+
+
+
+
+
+    /**   ------------------------------------------------------------------------ */
 
     //get all issue
     app.get('/issues', async (req, res) => {
