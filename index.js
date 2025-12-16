@@ -409,11 +409,28 @@ async function run() {
 
       res.send(result);
     });
-
+//get admin 
     app.get('/users/admin', verifyFBToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find({role:"admin"}).toArray()
       res.send(result)
     })
+
+    // GET /payments?type=premium
+    app.get('/payments', verifyFBToken, verifyAdmin, async (req, res) => {
+      const type = req.query.type;
+
+      let query = {};
+      if (type) {
+        query.paymentType = type;
+      }
+
+      const payments = await paymentCollection
+        .find(query)
+        .sort({ paidAt: -1 })
+        .toArray();
+
+      res.send(payments);
+    });
 
 
 
