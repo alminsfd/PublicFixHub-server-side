@@ -410,6 +410,11 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/users/admin', verifyFBToken, verifyAdmin, async (req, res) => {
+      const result = await userCollection.find({role:"admin"}).toArray()
+      res.send(result)
+    })
+
 
 
 
@@ -612,7 +617,7 @@ async function run() {
         return res.send({
           message: 'already exists',
           transactionId,
-          trackingId: paymentExist.userId
+          trackingId: trackingId
         })
       }
       const trackingId = session.metadata.trackingId;
