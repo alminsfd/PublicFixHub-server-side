@@ -174,6 +174,7 @@ async function run() {
     });
 
     //timelinFuntionality
+    const trackingId = generateTrackingId();
     const logTracking = async (trackingId, status, userId, role, message) => {
       const log = {
         trackingId,
@@ -260,10 +261,10 @@ async function run() {
     });
 
 
+
     //Issues api
     app.post('/issues', verifyFBToken, checkBlockedUser, async (req, res) => {
       const Issueinfo = req.body;
-      const trackingId = generateTrackingId();
       // parcel created time
       Issueinfo.createdAt = new Date();
       Issueinfo.trackingId = trackingId;
@@ -315,40 +316,70 @@ async function run() {
 
     app.get('/issues/status', verifyFBToken, verifyAdmin, async (req, res) => {
 
-      const cursor = await IssuesCollection.find({ status: "pending" }).toArray()
+      const cursor = await IssuesCollection.find({}).toArray()
       res.send(cursor)
 
     })
 
     app.get('/staff', async (req, res) => {
-      const cursor = await userCollection.find({ status: 'available' }).toArray()
+      const cursor = await userCollection.find({ role: 'staff' }).toArray()
       res.send(cursor)
     })
 
 
     app.patch("/issues/assign/:id", async (req, res) => {
+
       const id = req.params.id;
       const { staff } = req.body;
 
-      const issue = await issuesCollection.findOne({ _id: new ObjectId(id) });
 
-      // ❌ Re-assign block
-      if (issue.assignedStaff && issue.assignedStaff !== "N/A") {
+      const issue = await IssuesCollection.findOne({ _id: new ObjectId(id) });
+
+
+      if (issue.assignedStaff !== "N/A") {
         return res.send({ message: "Already assigned" });
       }
 
-      const result = await issuesCollection.updateOne(
-        { _id: new ObjectId(id) },
+
+      const staffUpdate = await userCollection.updateOne(
+        { _id: new ObjectId(staff.staffId) },
         {
           $set: {
-            assignedStaff: staff,
-            status: "in-progress"
+            status: "busy"
           }
         }
       );
 
+      logTracking(trackingId, 'pending', staff.staffId, 'admin', `Issue assigned to Staff: ${staff.name}
+`)
+
+
+      const result = await IssuesCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            assignedStaff: staff,
+          }
+        }
+      );
+
+      res.send({ result, staffUpdate });
+    });
+
+
+    app.patch("/issues/reject/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const result = await IssuesCollection.updateOne(
+        { _id: new ObjectId(id), status: "pending" },
+        { $set: { status: "rejected" } }
+      );
+
+      logTracking(trackingId, 'rejected', id, 'admin', `Issue is rejected by admin`)
+
       res.send(result);
     });
+
 
 
 
@@ -549,6 +580,7 @@ async function run() {
           IssueName: session.metadata.Issuetitle,
           transactionId: session.payment_intent,
           paymentStatus: session.payment_status,
+          paymentType: 'Boosting',
           paidAt: new Date(),
           trackingId: trackingId
         }
@@ -559,7 +591,7 @@ async function run() {
           Boosting: 'Boost the issue',
           updatedBy: session.metadata.Issueid,
           role: 'citizen',
-          message: `Boosting for ${session.metadata.Issuetitle}`,
+          message: `Issue is Boosting by the citizen`,
           createdAt: new Date()
         }
         const trackingresult = await trackingsCollection.insertOne(log);
