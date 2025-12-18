@@ -169,11 +169,10 @@ async function run() {
 
     //timelinFuntionality
     const trackingId = generateTrackingId();
-    const logTracking = async (trackingId, status, userId, role, message) => {
+    const logTracking = async (trackingId, status, role, message) => {
       const log = {
         trackingId,
         status,
-        updatedBy: userId,
         role: role,
         message,
         createdAt: new Date()
@@ -476,7 +475,7 @@ async function run() {
     /**  --------------- Staff -------------------------------------------------- */
 
 
-    app.get("/issues/staff/:email", verifyFBToken, async (req, res) => {
+    app.get("/issues/staff/:email", verifyFBToken, verifystaff, async (req, res) => {
       const email = req.params.email;
 
       const issues = await IssuesCollection.find({
@@ -500,7 +499,7 @@ async function run() {
       res.send(cursor);
     })
 
-    app.get('/users/:email',  async (req, res) => {
+    app.get('/users/:email', async (req, res) => {
       const email = req.params.email;
 
       const user = await userCollection.findOne({ email });
@@ -511,6 +510,34 @@ async function run() {
 
       res.send(user);
     });
+
+    app.patch('/issues/:id/status', verifyFBToken,verifystaff, async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+    
+
+      const statusMessages = {
+        "in-progress": "Work started on the issue",
+        "working": "Work started on the issue",
+        "resolved": "Issue marked as resolved",
+        "closed": "Issue closed by staff"
+      };
+      const message = statusMessages[status] || `Status changed to ${status}`;
+
+      const result = await IssuesCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: { status },
+        }
+      );
+
+      if (result.modifiedCount > 0) {
+        await logTracking(trackingId, status, 'staff', message);
+      }
+
+      res.send(result);
+    });
+
 
 
 
