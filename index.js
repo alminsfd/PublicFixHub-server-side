@@ -385,6 +385,19 @@ async function run() {
       const result = await userCollection.find({ role: 'citizen' }).toArray();
       res.send(result);
     });
+    //get all staffs
+    app.get('/users/staffs', verifyFBToken, verifyAdmin, async (req, res) => {
+      const result = await userCollection.find({ role: 'staff' }).toArray();
+      res.send(result);
+    });
+
+    //staff delete
+    app.delete('/users/:id/delete', verifyFBToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await userCollection.deleteOne(query)
+      res.send(result);
+    });
 
     // GET /payments/user/:email
     app.get('/payments/user/:email', verifyFBToken, verifyAdmin, async (req, res) => {
@@ -409,9 +422,9 @@ async function run() {
 
       res.send(result);
     });
-//get admin 
+    //get admin 
     app.get('/users/admin', verifyFBToken, verifyAdmin, async (req, res) => {
-      const result = await userCollection.find({role:"admin"}).toArray()
+      const result = await userCollection.find({ role: "admin" }).toArray()
       res.send(result)
     })
 
@@ -431,6 +444,41 @@ async function run() {
 
       res.send(payments);
     });
+
+
+    app.post('/users/create-staff', verifyFBToken, verifyAdmin, async (req, res) => {
+      const { email, password, displayName, phone, photoURL } = req.body;
+
+      try {
+        // 1️ Firebase Auth user create
+        const userRecord = await admin.auth().createUser({
+          email,
+          password,
+          displayName,
+          photoURL,
+        });
+
+        // 2️ Database save
+        const staffData = {
+          uid: userRecord.uid,
+          email,
+          displayName,
+          phone,
+          photoURL,
+          role: "staff",
+          isBlocked: false,
+          createdAt: new Date()
+        };
+
+        const result = await userCollection.insertOne(staffData);
+
+        res.send(result);
+
+      } catch (error) {
+        res.status(400).send({ message: error.message });
+      }
+    });
+
 
 
 
