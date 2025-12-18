@@ -335,15 +335,6 @@ async function run() {
       }
 
 
-      const staffUpdate = await userCollection.updateOne(
-        { _id: new ObjectId(staff.staffId) },
-        {
-          $set: {
-            status: "busy"
-          }
-        }
-      );
-
       logTracking(trackingId, 'pending', staff.staffId, 'admin', `Issue assigned to Staff: ${staff.name}
 `)
 
@@ -508,6 +499,19 @@ async function run() {
       const cursor = await userCollection.find(query, { role: "staff" }).toArray();
       res.send(cursor);
     })
+
+    app.get('/users/:email',  async (req, res) => {
+      const email = req.params.email;
+
+      const user = await userCollection.findOne({ email });
+
+      if (!user) {
+        return res.status(404).send({ message: "User not found" });
+      }
+
+      res.send(user);
+    });
+
 
 
     /**   ------------------------------------------------------------------------ */
