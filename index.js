@@ -347,7 +347,7 @@ async function run() {
         }
       );
 
-      res.send({ result, staffUpdate });
+      res.send(result);
     });
 
 
