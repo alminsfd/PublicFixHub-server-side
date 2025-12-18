@@ -168,7 +168,6 @@ async function run() {
     });
 
     //timelinFuntionality
-    const trackingId = generateTrackingId();
     const logTracking = async (trackingId, status, role, message) => {
       const log = {
         trackingId,
@@ -257,6 +256,7 @@ async function run() {
 
     //Issues api
     app.post('/issues', verifyFBToken, checkBlockedUser, async (req, res) => {
+      const trackingId = generateTrackingId();
       const Issueinfo = req.body;
       // parcel created time
       Issueinfo.createdAt = new Date();
@@ -266,7 +266,7 @@ async function run() {
         Issueinfo.status = 'pending',
         Issueinfo.upvotes = 0,
         Issueinfo.upvotedBy = []
-      logTracking(trackingId, 'pending', Issueinfo.createdBy, Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
+      logTracking(trackingId, 'pending', Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
       console.log(Issueinfo)
       const result = await IssuesCollection.insertOne(Issueinfo);
       res.send(result)
@@ -334,8 +334,7 @@ async function run() {
       }
 
 
-      logTracking(trackingId, 'pending', staff.staffId, 'admin', `Issue assigned to Staff: ${staff.name}
-`)
+      logTracking(staff.trackingId, 'pending', 'admin', `Issue assigned to Staff: ${staff.name}`)
 
 
       const result = await IssuesCollection.updateOne(
@@ -353,13 +352,14 @@ async function run() {
 
     app.patch("/issues/reject/:id", verifyFBToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
+      const trackingIdsame = req.body.trackingId
 
       const result = await IssuesCollection.updateOne(
         { _id: new ObjectId(id), status: "pending" },
         { $set: { status: "rejected" } }
       );
 
-      logTracking(trackingId, 'rejected', id, 'admin', `Issue is rejected by admin`)
+      logTracking(trackingIdsame, 'rejected', 'admin', `Issue is rejected by admin`)
 
       res.send(result);
     });
@@ -511,10 +511,10 @@ async function run() {
       res.send(user);
     });
 
-    app.patch('/issues/:id/status', verifyFBToken,verifystaff, async (req, res) => {
+    app.patch('/issues/:id/status', verifyFBToken, verifystaff, async (req, res) => {
       const id = req.params.id;
-      const { status } = req.body;
-    
+      const { status, trackingId } = req.body;
+
 
       const statusMessages = {
         "in-progress": "Work started on the issue",
@@ -596,10 +596,23 @@ async function run() {
     //issue details API
     app.get("/issues/:id", verifyFBToken, async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
+      const query = { trackingId: id }
       const cursor = await IssuesCollection.findOne(query)
       res.send(cursor);
     });
+
+    // GET issue timeline by trackingId
+    app.get('/issue-timeline/:trackingId', async (req, res) => {
+      const trackingId = req.params.trackingId;
+
+      const result = await trackingsCollection
+        .find({ trackingId })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.send(result);
+    });
+
     //issue delete
     app.delete("/issues/:id", async (req, res) => {
       const id = req.params.id;
@@ -743,24 +756,33 @@ async function run() {
           trackingId: trackingId
         }
         const resultPayment = await paymentCollection.insertOne(payment);
-        const log = {
-          trackingId,
-          status: 'pending',
-          Boosting: 'Boost the issue',
-          updatedBy: session.metadata.Issueid,
-          role: 'citizen',
-          message: `Issue is Boosting by the citizen`,
-          createdAt: new Date()
+
+        const trackingExist = await trackingsCollection.findOne({
+          transactionId: session.payment_intent,
+          Boosting: 'Boost the issue'
+        });
+
+        if (!trackingExist) {
+          await trackingsCollection.insertOne({
+            trackingId,
+            transactionId: session.payment_intent,
+            status: 'pending',
+            Boosting: 'Boost the issue',
+            updatedBy: session.metadata.Issueid,
+            role: 'citizen',
+            message: `Issue is Boosting by the citizen`,
+            createdAt: new Date()
+          });
         }
-        const trackingresult = await trackingsCollection.insertOne(log);
-        console.log({ resultPayment, trackingresult })
+
+      
         return res.send({
           success: true,
           modifyParcel: result,
           trackingId: trackingId,
           transactionId: session.payment_intent,
           paymentInfo: resultPayment,
-          trackingInfo: trackingresult,
+          trackingInfo: trackingId,
         })
 
 
