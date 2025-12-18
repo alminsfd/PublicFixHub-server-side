@@ -11,12 +11,8 @@ app.use(express.json());
 app.use(cors());
 
 const admin = require("firebase-admin");
-
 const serviceAccount = require("./reporting-system-69-firebase-adminsdk.json");
-const e = require('express');
-const { log } = require('console');
-const { console } = require('inspector');
-const { link } = require('fs');
+
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -48,8 +44,6 @@ const verifyFBToken = async (req, res, next) => {
 
 
 }
-
-
 
 
 
@@ -480,10 +474,13 @@ async function run() {
     });
 
 
-
-
-
     /** -------------------------------------------------------------------------- */
+
+
+
+
+
+
 
     /**  --------------- Staff -------------------------------------------------- */
 
@@ -499,11 +496,18 @@ async function run() {
       res.send(issues);
     });
 
-
-
-
-
-
+    app.get('/users/saff', verifyFBToken, verifystaff, async (req, res) => {
+      const email = req.query.email;
+      const query = {}
+      if (email) {
+        query.email = email
+        if (req.decoded_email !== email) {
+          return res.status(403).send({ message: 'forbidden access' })
+        }
+      }
+      const cursor = await userCollection.find(query, { role: "staff" }).toArray();
+      res.send(cursor);
+    })
 
 
     /**   ------------------------------------------------------------------------ */
