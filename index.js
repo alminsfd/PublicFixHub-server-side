@@ -484,7 +484,7 @@ async function run() {
 
     //latest issue
 
-    app.get('/dashboard/latest-issues', async (req, res) => {
+    app.get('/dashboard/latest-issues', verifyFBToken, verifyAdmin, async (req, res) => {
       const result = await IssuesCollection
         .find()
         .sort({ createdAt: -1 })
@@ -497,7 +497,7 @@ async function run() {
 
     //some latest payments'
 
-    app.get('/dashboard/latest-payments', async (req, res) => {
+    app.get('/dashboard/latest-payments', verifyFBToken, verifyAdmin, async (req, res) => {
       const result = await paymentCollection
         .find()
         .sort({ createdAt: -1 })
@@ -510,7 +510,7 @@ async function run() {
 
     //some latest users
 
-    app.get('/dashboard/latest-users', async (req, res) => {
+    app.get('/dashboard/latest-users', verifyFBToken, verifyAdmin, async (req, res) => {
       const result = await userCollection
         .find()
         .sort({ createdAt: -1 })
@@ -522,7 +522,7 @@ async function run() {
 
     //total payments receive
 
-    app.get('/dashboard/payment-stats', verifyFBToken, async (req, res) => {
+    app.get('/dashboard/payment-stats', verifyFBToken,verifyAdmin, async (req, res) => {
       const payments = await paymentCollection.find().toArray();
 
       const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
