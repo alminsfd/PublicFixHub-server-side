@@ -538,6 +538,40 @@ async function run() {
       res.send(result);
     });
 
+    //StaffdashboardHome
+    app.get('/dashboard/staff/:email', verifyFBToken, verifystaff,async (req, res) => {
+      const email = req.params.email;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      console.log(today)
+
+
+      const assigned = await IssuesCollection.countDocuments({
+        'assignedStaff.email': email,
+      });
+
+
+      const resolved = await IssuesCollection.countDocuments({
+        'assignedStaff.email': email,
+        status: 'resolved'
+      });
+
+
+      const todayTasks = await IssuesCollection.countDocuments({
+        'assignedStaff.email': email,
+        createdAt: { $gte: today }
+      });
+
+
+      const statusStats = await IssuesCollection.aggregate([
+        { $match: { 'assignedStaff.email': email } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]).toArray();
+
+
+      res.send({ assigned, resolved, todayTasks, statusStats });
+    });
+
 
 
 
