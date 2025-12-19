@@ -464,6 +464,76 @@ async function run() {
     });
 
 
+    //admin Homedashboard
+
+    app.get('/dashboard/issues-stats', verifyFBToken, verifyAdmin, async (req, res) => {
+      const total = await IssuesCollection.countDocuments();
+
+      const resolved = await IssuesCollection.countDocuments({ status: 'resolved' });
+      const pending = await IssuesCollection.countDocuments({ status: 'pending' });
+      const rejected = await IssuesCollection.countDocuments({ status: 'rejected' });
+
+      res.send({
+        total,
+        resolved,
+        pending,
+        rejected
+      });
+    });
+
+
+    //latest issue
+
+    app.get('/dashboard/latest-issues', async (req, res) => {
+      const result = await IssuesCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .toArray();
+
+      res.send(result);
+    });
+
+
+    //some latest payments'
+
+    app.get('/dashboard/latest-payments', async (req, res) => {
+      const result = await paymentCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .toArray();
+
+      res.send(result);
+    });
+
+
+    //some latest users
+
+    app.get('/dashboard/latest-users', async (req, res) => {
+      const result = await userCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .toArray();
+
+      res.send(result);
+    });
+
+    //total payments receive
+
+    app.get('/dashboard/payment-stats', verifyFBToken, async (req, res) => {
+      const payments = await paymentCollection.find().toArray();
+
+      const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
+
+      res.send({
+        totalPayments: payments.length,
+        totalAmount
+      });
+    });
+
+
     /** -------------------------------------------------------------------------- */
 
 
@@ -539,7 +609,7 @@ async function run() {
     });
 
     //StaffdashboardHome
-    app.get('/dashboard/staff/:email', verifyFBToken, verifystaff,async (req, res) => {
+    app.get('/dashboard/staff/:email', verifyFBToken, verifystaff, async (req, res) => {
       const email = req.params.email;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -809,7 +879,7 @@ async function run() {
           });
         }
 
-      
+
         return res.send({
           success: true,
           modifyParcel: result,
