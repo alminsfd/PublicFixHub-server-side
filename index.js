@@ -239,7 +239,6 @@ async function run() {
       try {
         const id = req.params.id;
         const updateData = req.body;
-        console.log(id, updateData)
         const filter = { _id: new ObjectId(id) };
         const updateDoc = {
           $set: {
@@ -287,7 +286,7 @@ async function run() {
         Issueinfo.upvotes = 0,
         Issueinfo.upvotedBy = []
       logTracking(trackingId, 'pending', Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
-      console.log(Issueinfo)
+     
       const result = await IssuesCollection.insertOne(Issueinfo);
       res.send(result)
     })
@@ -633,7 +632,7 @@ async function run() {
       const email = req.params.email;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      console.log(today)
+
 
 
       const assigned = await IssuesCollection.countDocuments({
@@ -846,7 +845,6 @@ async function run() {
 
       const sessionId = req.query.session_id;
       const session = await stripe.checkout.sessions.retrieve(sessionId);
-      console.log(session)
       const transactionId = session.payment_intent;
       const query = { transactionId: transactionId }
       const paymentExist = await paymentCollection.findOne(query);
@@ -944,7 +942,7 @@ async function run() {
 
         const result = await userCollection.updateOne(query, update);
 
-        console.log(session)
+      
 
         const payment = {
           amount: session.amount_total / 100,
