@@ -1,3 +1,4 @@
 node_modules
 .env
 reporting-system-69-firebase-adminsdk.json
+.vercel
