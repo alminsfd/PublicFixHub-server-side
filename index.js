@@ -213,6 +213,26 @@ async function run() {
       res.send(cursor);
     })
 
+    app.get('/payments/profile', verifyFBToken, async (req, res) => {
+
+      const email = req.query.email
+      if (!email) {
+        return res.send({ message: 'email required' })
+      }
+
+      if (email) {
+        if (req.decoded_email !== email) {
+          return res.status(403).send({ message: 'forbidden access' })
+        }
+      }
+
+      const query = { customerEmail: email }
+
+      const result = await paymentCollection.findOne(query)
+      res.send(result)
+
+    })
+
     //update user info
 
     app.patch('/users/:id', async (req, res) => {
@@ -522,7 +542,7 @@ async function run() {
 
     //total payments receive
 
-    app.get('/dashboard/payment-stats', verifyFBToken,verifyAdmin, async (req, res) => {
+    app.get('/dashboard/payment-stats', verifyFBToken, verifyAdmin, async (req, res) => {
       const payments = await paymentCollection.find().toArray();
 
       const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
