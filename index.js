@@ -1,26 +1,22 @@
+require('dotenv').config()
 const express = require('express')
 const cors = require('cors');
 const crypto = require("crypto");
-require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const stripe = require('stripe')(process.env.STRIPE_SECRET);
 //middaleware
-app.use(express.json());
 app.use(cors());
+app.use(express.json());
 
 const admin = require("firebase-admin");
-const serviceAccount = require("./reporting-system-69-firebase-adminsdk.json");
-
+const decoded = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8')
+const serviceAccount = JSON.parse(decoded);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
-
-
-
-
 
 //FbToken
 const verifyFBToken = async (req, res, next) => {
@@ -72,7 +68,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // await client.connect();
+
 
     //database and collection
     const db = client.db('publicfixhub')
@@ -286,7 +282,7 @@ async function run() {
         Issueinfo.upvotes = 0,
         Issueinfo.upvotedBy = []
       logTracking(trackingId, 'pending', Issueinfo.role, `Issue reported by ${Issueinfo.name}`);
-     
+
       const result = await IssuesCollection.insertOne(Issueinfo);
       res.send(result)
     })
@@ -554,12 +550,6 @@ async function run() {
 
 
     /** -------------------------------------------------------------------------- */
-
-
-
-
-
-
 
     /**  --------------- Staff -------------------------------------------------- */
 
@@ -942,7 +932,7 @@ async function run() {
 
         const result = await userCollection.updateOne(query, update);
 
-      
+
 
         const payment = {
           amount: session.amount_total / 100,
@@ -990,8 +980,8 @@ async function run() {
     })
 
 
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+
   } finally {
     //as need your
   }
