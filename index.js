@@ -1,6 +1,6 @@
-require('dotenv').config()
 const express = require('express')
 const cors = require('cors');
+require('dotenv').config()
 const crypto = require("crypto");
 const app = express()
 const port = process.env.PORT || 5000
@@ -40,9 +40,6 @@ const verifyFBToken = async (req, res, next) => {
 
 
 }
-
-
-
 
 //trakerNumber
 function generateTrackingId() {
