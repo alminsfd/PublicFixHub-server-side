@@ -35,7 +35,7 @@ const verifyFBToken = async (req, res, next) => {
     next();
   }
   catch (err) {
-    return res.status(401).send({ message: 'unauthorized access 2' })
+    return res.status(401).send({ message: 'Please login first to upvote' })
   }
 
 
