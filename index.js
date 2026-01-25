@@ -704,7 +704,7 @@ async function run() {
       res.send(cursor);
     });
     //issue details API
-    app.get("/issues/:id", verifyFBToken, async (req, res) => {
+    app.get("/issues/:id", async (req, res) => {
       const id = req.params.id;
       const query = { trackingId: id }
       const cursor = await IssuesCollection.findOne(query)
